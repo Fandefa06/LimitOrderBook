@@ -17,4 +17,5 @@ include_directories(include)
 # Los siguientes son los archivos .cpp que debe compilar.
 add_executable(MotorHFT 
     src/main.cpp
+    src/OrderBook.cpp
 )
