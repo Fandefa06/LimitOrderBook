@@ -3,8 +3,8 @@
 #include <cstdint>
 
 enum class OrderSide: uint8_t {
-    Buy,
-    Sell
+    Bid,
+    Ask
 };
 
 struct Order {
