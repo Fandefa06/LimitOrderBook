@@ -1,1 +1,10 @@
+# Force GitHub to ignore RMarkdown in language stats
 scripts/*.Rmd linguist-vendored
+scripts/*.Rmd linguist-documentation
+
+# Ensure C++ is the king
+src/*.cpp linguist-detectable=true
+include/*.hpp linguist-detectable=true
+
+# Ignore the CSV if it somehow bypassed the gitignore
+output/*.csv linguist-generated=true
