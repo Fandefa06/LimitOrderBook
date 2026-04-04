@@ -5,15 +5,18 @@
 
 namespace fs = std::filesystem;
 
-
 OrderBook::OrderBook() : bestBid(0), bestAsk(MAX_PRICE) {
-    // We pre-allocate the entire price range. This costs a few MB of RAM but gives extreme speed.
+    // Record the exact engine initialization time (T=0)
+    startTime = std::chrono::steady_clock::now(); 
+
+    // Pre-allocate memory to guarantee O(1) execution time
     bids.resize(MAX_PRICE);
     asks.resize(MAX_PRICE);
     trades.reserve(1000000);
+    
+    // Pre-allocate 100M+ bits for lazy cancellation tracking (~12.5 MB of RAM)
+    cancelledOrders.resize(100000500, false); 
 }
-
-
 
 void OrderBook::addOrder(Order order) {
     
@@ -25,17 +28,15 @@ void OrderBook::addOrder(Order order) {
         while (order.quantity > 0 && bestAsk <= order.price) {
             std::deque<Order>& askQueue = asks[bestAsk];
 
-            // --- NEW: LAZY CANCELLATION CLEANUP ---
+            // --- LAZY CANCELLATION CLEANUP ---
             // Remove cancelled orders sitting at the front of the queue
             while (!askQueue.empty() && cancelledOrders[askQueue.front().id]) {
                 askQueue.pop_front();
             }
-            // --------------------------------------
 
             while (!askQueue.empty() && order.quantity > 0) {
                 Order& bestAskOrder = askQueue.front();
                 
-                // (Your existing trade matching logic stays exactly the same)
                 uint32_t matchQty = std::min(order.quantity, bestAskOrder.quantity);
                 trades.emplace_back(order.id, bestAskOrder.id, bestAsk, matchQty);
 
@@ -47,7 +48,7 @@ void OrderBook::addOrder(Order order) {
                     order.quantity = 0;
                 }
                 
-                // --- NEW: CLEANUP AFTER PARTIAL FILL ---
+                // CLEANUP AFTER PARTIAL FILL
                 // Just in case the next order in line is also cancelled
                 while (!askQueue.empty() && cancelledOrders[askQueue.front().id]) {
                     askQueue.pop_front();
@@ -72,16 +73,14 @@ void OrderBook::addOrder(Order order) {
         while (order.quantity > 0 && bestBid >= order.price && bestBid > 0) {
             std::deque<Order>& bidQueue = bids[bestBid];
 
-            // --- NEW: LAZY CANCELLATION CLEANUP ---
+            // --- LAZY CANCELLATION CLEANUP ---
             while (!bidQueue.empty() && cancelledOrders[bidQueue.front().id]) {
                 bidQueue.pop_front();
             }
-            // --------------------------------------
 
             while (!bidQueue.empty() && order.quantity > 0) {
                 Order& bestBidOrder = bidQueue.front();
                 
-                // (Your existing trade matching logic)
                 uint32_t matchQty = std::min(order.quantity, bestBidOrder.quantity);
                 trades.emplace_back(bestBidOrder.id, order.id, bestBid, matchQty);
 
@@ -93,7 +92,7 @@ void OrderBook::addOrder(Order order) {
                     order.quantity = 0;
                 }
                 
-                // --- NEW: CLEANUP AFTER PARTIAL FILL ---
+                // CLEANUP AFTER PARTIAL FILL
                 while (!bidQueue.empty() && cancelledOrders[bidQueue.front().id]) {
                     bidQueue.pop_front();
                 }
@@ -114,7 +113,6 @@ void OrderBook::addOrder(Order order) {
     }
 }
 
-
 void OrderBook::cancelOrder(uint32_t orderId) {
     cancelledOrders[orderId] = true;
 }
@@ -131,15 +129,12 @@ void OrderBook::exportTradesToCSV(const std::string& filename) const {
     // 3. Define the 'output' directory at the root level
     fs::path outputDir = current / "output";
 
-    // 4. Create the directory if it does not exist to prevent file errors
+    // 4. Create the directory if it does not exist
     if (!fs::exists(outputDir)) {
         fs::create_directories(outputDir);
     }
 
-    // 5. Append the filename to the output directory path
     fs::path fullPath = outputDir / filename;
-
-    // 6. Attempt to open the file for writing
     std::ofstream file(fullPath);
     
     if (!file.is_open()) {
@@ -147,10 +142,18 @@ void OrderBook::exportTradesToCSV(const std::string& filename) const {
         return;
     }
 
-    // Write CSV headers and trade data
-    file << "BuyerID,SellerID,Price,Quantity\n";
+    // Write CSV headers including the new Microseconds column
+    file << "Microseconds,BuyerID,SellerID,Price,Quantity\n";
+    
     for (const auto& t : trades) {
-        file << t.buyerId << "," << t.sellerId << "," << t.price << "," << t.quantity << "\n";
+        // Calculate elapsed time in microseconds since engine initialization
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t.timestamp - startTime);
+        
+        file << duration.count() << "," 
+             << t.buyerId << "," 
+             << t.sellerId << "," 
+             << t.price << "," 
+             << t.quantity << "\n";
     }
 
     file.close();

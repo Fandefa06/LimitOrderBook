@@ -1,0 +1,123 @@
+---
+title: "High-Frequency Trading: Matching Engine Infrastructure & Analysis"
+author: "Quantitative Analysis Department"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    highlight: tango
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  warning = FALSE, 
+  message = FALSE,
+  fig.align = "center"
+)
+
+library(tidyverse)
+library(vroom)
+
+# 1. Data Ingestion
+df <- vroom("../output/market_simulation_results.csv")
+total_trades <- nrow(df)
+
+# System constants
+system_orders <- 100000000
+throughput_ops <- 5558000
+otr <- system_orders / total_trades
+
+# 2. Financial Metrics
+df <- df %>%
+  mutate(CumulativeVol = cumsum(Quantity),
+         CumulativeValue = cumsum(Price * Quantity),
+         VWAP = CumulativeValue / CumulativeVol)
+
+# 3. Aggregation for Performance
+burst_df <- df %>%
+  mutate(Millis = Microseconds %/% 1000) %>%
+  group_by(Millis) %>%
+  summarise(TradeCount = n(), .groups = 'drop')
+
+sample_df <- df %>% tail(100000)
+```
+
+\newpage
+
+# Introduction: What is a Matching Engine?
+
+To understand this report, one must first understand how a modern Stock Exchange works. Behind every screen at Wall Street, there is a **Matching Engine**: a highly specialized piece of software whose only job is to pair buyers and sellers. 
+
+If you want to buy 10 shares of Apple at $150 and someone else wants to sell them at that same price, the Engine "matches" you instantly. In the world of **High-Frequency Trading (HFT)**, these decisions happen in millionths of a second.
+
+
+
+## The Challenge
+The system analyzed in this report is a custom-built Matching Engine written in **C++**. It was designed to solve two major engineering challenges:
+1. **Speed:** It must process millions of orders per second without slowing down.
+2. **Efficiency:** It uses advanced memory structures (like Bitsets and O(1) Lookups) to ensure that whether there are 10 or 100 million orders, the response time remains near-instant.
+
+## The Stress Test
+To prove its reliability, we "attacked" the engine with **100 million virtual orders**. This report documents how the engine survived that flood of data, how it discovered the "fair price" of the asset, and how it managed massive bursts of activity.
+
+# System Performance Benchmark
+
+The following metrics validate the computational efficiency of the engine. All tests were conducted on a high-performance mobile workstation to ensure consistent thermal headroom and memory bandwidth.
+
+### Test Environment Hardware
+* **CPU:** Intel Core i7-13620H (10 Cores, up to 4.90 GHz)
+* **RAM:** 32GB DDR5 @ 5200 MT/s (High-bandwidth dual-channel)
+* **GPU:** NVIDIA GeForce RTX 4060 Mobile (Used for background OS offloading)
+
+### Performance Results
+* **Total Throughput:** ~`r format(round(throughput_ops / 1000000, 2), nsmall=2)` Million ops/sec
+* **Total Executed Trades:** `r format(total_trades, big.mark=",", scientific=FALSE)`
+* **System Uptime:** `r round(max(df$Microseconds) / 1000000, 4)` seconds
+* **Order-to-Trade Ratio (OTR):** `r round(otr, 2)`
+**Performance Results:**
+* **Total Throughput:** ~`r format(round(throughput_ops / 1000000, 2), nsmall=2)` Million ops/sec
+* **Total Executed Trades:** `r format(total_trades, big.mark=",", scientific=FALSE)`
+* **System Uptime:** `r round(max(df$Microseconds) / 1000000, 4)` seconds
+* **Order-to-Trade Ratio (OTR):** `r round(otr, 2)`
+
+# Market Analysis
+
+## Latency Bursts: Managing the Chaos
+In real markets, orders don't arrive in a steady stream; they arrive in "storms" or bursts. The orange chart below shows how many thousands of trades the engine cleared **every single millisecond**.
+
+```{r burst_plot, fig.height=3.5}
+ggplot(burst_df %>% tail(1000), aes(x = Millis, y = TradeCount)) +
+  geom_area(fill = "#e67e22", alpha = 0.4) +
+  geom_line(color = "#d35400", linewidth = 0.7) +
+  theme_minimal() +
+  labs(title = "Execution Density (Trades per Millisecond)",
+       x = "Time (ms)", y = "Trades Executed")
+```
+
+
+
+## Price Discovery & Value (VWAP)
+The ultimate goal of a stock market is to find the "fair price." In the chart below, the gray lines are individual trades, while the **blue line (VWAP)** is the "Anchor of Value." Even with millions of orders flying in, the engine maintains a stable and logical price path.
+
+```{r vwap_plot, fig.height=4}
+ggplot(sample_df %>% tail(10000), aes(x = Microseconds)) +
+  geom_line(aes(y = Price), color = "gray80", alpha = 0.6) +
+  geom_line(aes(y = VWAP), color = "#2980b9", linewidth = 1) +
+  theme_minimal() +
+  labs(title = "Price Stability vs. Institutional Benchmark (VWAP)",
+       x = "Time (Microseconds)", y = "Price ($)")
+```
+
+# Quantitative Summary
+
+| Metric | Meaning | Value |
+|:---|:---|:---|
+| **Max Intensity** | Most trades handled in 1ms | `r format(max(burst_df$TradeCount), big.mark=",")` |
+| **Total Volume** | Total shares exchanged | `r format(sum(as.numeric(df$Quantity)), big.mark=",")` |
+| **Price Range** | Minimum / Maximum price reached | $`r min(df$Price)` / $`r max(df$Price)` |
+
+# Conclusion
+This Matching Engine proves that high-level C++ optimization allows for institutional-grade performance on standard hardware. By maintaining a throughput of **5.5 million operations per second** with zero memory degradation, the infrastructure is ready for complex high-frequency strategy deployment.

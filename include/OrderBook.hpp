@@ -20,7 +20,10 @@ private:
 
     // NEW: The Soft Delete Ledger
     // Maps Order ID to a boolean (true if cancelled)
-    std::unordered_map<uint32_t, bool> cancelledOrders;
+    std::vector<bool> cancelledOrders;
+    
+    // NEW: High-resolution timestamp for latency and burst analysis
+    std::chrono::steady_clock::time_point startTime;
 
 public:
     OrderBook();

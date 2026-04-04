@@ -2,3 +2,9 @@ build/
 .vscode/
 *.exe
 *.o
+.Rproj.user
+
+output/*.csv
+
+.Rhistory
+.RData

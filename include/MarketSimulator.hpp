@@ -9,11 +9,11 @@ public:
     static void generateRandomOrders(OrderBook& book, 
                                      uint32_t numOrders,
                                      uint32_t cancelPercent = 10, // Added cancellation probability
-                                     uint32_t minPrice = 70,
-                                     uint32_t maxPrice = 130,
+                                     uint32_t minPrice = 90,
+                                     uint32_t maxPrice = 115,
                                      uint32_t minQty = 1,
                                      uint32_t maxQty = 15,
-                                     bool useFixedSeed = false) { // Set to true for debugging. Set to false to test
+                                     bool useFixedSeed = true) { // Set to true for debugging. Set to false to test
         
         // 1. The Seed Engine
         std::random_device rd; // True hardware-based random number (Entropy)
@@ -53,7 +53,7 @@ public:
             // Efficient terminal update (every 5%)
             if (i % updateInterval == 0 || i == numOrders) {
                 // Integer math optimization to avoid floats
-                uint32_t progress = (i * 100) / numOrders;
+                uint32_t progress = (static_cast<uint64_t>(i) * 100) / numOrders;
                 int pos = (barWidth * progress) / 100;
 
                 std::cout << "\r[";

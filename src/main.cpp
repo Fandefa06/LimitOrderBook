@@ -5,8 +5,8 @@
 
 int main() {
     OrderBook myBook;
-    const uint32_t numOrders = 300000; // Define order count here for cleaner calculations
-    const uint32_t cancelPercent = 15;   //Probability to cancel an order
+    const uint32_t numOrders = 100000000; // Define order count here for cleaner calculations
+    const uint32_t cancelPercent = 5;   //Probability to cancel an order
 
     // ==========================================
     // MODE 1: Manual Debugging (For bug hunting)
