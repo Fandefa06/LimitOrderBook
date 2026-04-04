@@ -5,7 +5,7 @@
 
 int main() {
     OrderBook myBook;
-    const uint32_t numOrders = 100000000; // Define order count here for cleaner calculations
+    const uint32_t numOrders = 1000000; // Define order count here for cleaner calculations
     const uint32_t cancelPercent = 5;   //Probability to cancel an order
 
     // ==========================================
@@ -26,7 +26,8 @@ int main() {
     auto start = std::chrono::high_resolution_clock::now();
 
     //Execute workload
-    MarketSimulator::generateRandomOrders(myBook, numOrders, cancelPercent); 
+    MarketSimulator::generateRandomOrders(myBook, numOrders, cancelPercent);
+    MarketSimulator::injectMarketShock(myBook, 500000, OrderSide::Bid, 200); 
 
     //Stop timer
     auto end = std::chrono::high_resolution_clock::now();
@@ -44,6 +45,8 @@ int main() {
     std::cout << "---------------------------" << std::endl;
     std::cout << "Exporting result to CSV: " << std::endl;
     myBook.exportTradesToCSV("market_simulation_results.csv");
+    std::cout << "Exporting spread to CSV: " << std::endl;
+    myBook.exportSpreadToCSV("market_spread.csv");
     std::cout << "Done. Finishing program" << std::endl;
 
     return 0;

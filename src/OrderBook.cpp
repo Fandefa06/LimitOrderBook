@@ -111,10 +111,24 @@ void OrderBook::addOrder(Order order) {
             if (order.price < bestAsk) bestAsk = order.price;
         }
     }
+    // Record L1 state after order processing
+    recordSpread();
 }
 
 void OrderBook::cancelOrder(uint32_t orderId) {
     cancelledOrders[orderId] = true;
+    // Record L1 state after cancellation
+    recordSpread();
+}
+
+void OrderBook::recordSpread() {
+    auto now = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - startTime);
+    
+    // We only record if it's a valid spread
+    if (bestBid > 0 && bestAsk < MAX_PRICE) {
+        spreadHistory.emplace_back(duration.count(), bestBid, bestAsk);
+    }
 }
 
 void OrderBook::exportTradesToCSV(const std::string& filename) const {
@@ -158,4 +172,25 @@ void OrderBook::exportTradesToCSV(const std::string& filename) const {
 
     file.close();
     std::cout << "File successfully saved to: " << fullPath << std::endl;
+}
+
+void OrderBook::exportSpreadToCSV(const std::string& filename) const {
+    // Detect and setup path
+    fs::path current = fs::current_path();
+    if (current.filename() == "build") current = current.parent_path();
+    fs::path outputDir = current / "output";
+    if (!fs::exists(outputDir)) fs::create_directories(outputDir);
+
+    fs::path fullPath = outputDir / filename;
+    std::ofstream file(fullPath);
+
+    if (!file.is_open()) return;
+
+    // Header for L1 spread data
+    file << "Microseconds,BestBid,BestAsk\n";
+    for (const auto& s : spreadHistory) {
+        file << s.timestamp << "," << s.bid << "," << s.ask << "\n";
+    }
+    file.close();
+    std::cout << "Spread data saved to: " << fullPath << std::endl;
 }

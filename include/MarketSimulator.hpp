@@ -67,4 +67,12 @@ public:
         }
         std::cout << std::endl;
     }
+
+    
+    static void injectMarketShock(OrderBook& book, uint32_t quantity, OrderSide side, uint32_t aggressivePrice) {
+        std::cout << "\n!!! INJECTING MARKET SHOCK: " << quantity << " units !!!" << std::endl;
+        
+        //Let's crash the market
+        book.addOrder(Order(99999999, aggressivePrice, quantity, side));
+}
 };
