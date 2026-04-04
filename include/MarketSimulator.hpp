@@ -8,8 +8,9 @@ public:
     // We added default parameters so you can customize the market behavior from main.cpp
     static void generateRandomOrders(OrderBook& book, 
                                      uint32_t numOrders,
-                                     uint32_t minPrice = 90,
-                                     uint32_t maxPrice = 110,
+                                     uint32_t cancelPercent = 10, // Added cancellation probability
+                                     uint32_t minPrice = 70,
+                                     uint32_t maxPrice = 130,
                                      uint32_t minQty = 1,
                                      uint32_t maxQty = 15,
                                      bool useFixedSeed = false) { // Set to true for debugging. Set to false to test
@@ -24,21 +25,36 @@ public:
         std::uniform_int_distribution<uint32_t> priceDist(minPrice, maxPrice);
         std::uniform_int_distribution<uint32_t> qtyDist(minQty, maxQty);
         std::uniform_int_distribution<int> sideDist(0, 1);
+        std::uniform_int_distribution<uint32_t> eventDist(1, 100); // 1-100 for integer probability
 
         // Progress bar parameters
         uint32_t updateInterval = numOrders / 20; 
         if (updateInterval == 0) updateInterval = 1; 
         const int barWidth = 50; 
 
+        // Track active IDs to cancel and stats
+        uint32_t orderCounter = 0;
+        uint32_t cancelCounter = 0;
+
         // 3. Generate the flow
         for (uint32_t i = 1; i <= numOrders; ++i) {
-            OrderSide side = (sideDist(gen) == 0) ? OrderSide::Bid : OrderSide::Ask;
-            book.addOrder(Order(i, priceDist(gen), qtyDist(gen), side));
+            
+            // Decide between Order or Cancel based on eventDist
+            if (orderCounter > 0 && eventDist(gen) <= cancelPercent) {
+                std::uniform_int_distribution<uint32_t> idDist(1, orderCounter);
+                book.cancelOrder(idDist(gen));
+                cancelCounter++;
+            } else {
+                orderCounter++;
+                OrderSide side = (sideDist(gen) == 0) ? OrderSide::Bid : OrderSide::Ask;
+                book.addOrder(Order(orderCounter, priceDist(gen), qtyDist(gen), side));
+            }
 
             // Efficient terminal update (every 5%)
             if (i % updateInterval == 0 || i == numOrders) {
-                float progress = static_cast<float>(i) / numOrders;
-                int pos = barWidth * progress;
+                // Integer math optimization to avoid floats
+                uint32_t progress = (i * 100) / numOrders;
+                int pos = (barWidth * progress) / 100;
 
                 std::cout << "\r[";
                 for (int p = 0; p < barWidth; ++p) {
@@ -46,7 +62,7 @@ public:
                     else if (p == pos) std::cout << ">";
                     else std::cout << " ";
                 }
-                std::cout << "] " << int(progress * 100.0) << "%" << std::flush;
+                std::cout << "] " << progress << "% [Orders: " << orderCounter << " | Cancels: " << cancelCounter << "]" << std::flush;
             }
         }
         std::cout << std::endl;
