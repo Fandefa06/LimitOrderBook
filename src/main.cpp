@@ -5,7 +5,7 @@
 
 int main() {
     OrderBook myBook;
-    const int numOrders = 1000000000; // Define order count here for cleaner calculations
+    const int numOrders = 100000; // Define order count here for cleaner calculations
 
     // ==========================================
     // MODE 1: Manual Debugging (For bug hunting)
@@ -41,6 +41,9 @@ int main() {
     std::cout << "Elapsed time: " << elapsed.count() << " seconds" << std::endl;
     std::cout << "Throughput: " << (numOrders / elapsed.count()) << " ops/sec" << std::endl;
     std::cout << "---------------------------" << std::endl;
+    std::cout << "Exporting result to CSV: " << std::endl;
+    myBook.exportTradesToCSV("market_simulation_results.csv");
+    std::cout << "Done. Finishing program" << std::endl;
 
     return 0;
 }
